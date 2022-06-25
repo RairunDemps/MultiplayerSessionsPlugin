@@ -137,7 +137,7 @@ void UMultiplayerSessionsMenuWidget::OnJoinSessionComplete(EOnJoinSessionComplet
         return;
     }
 
-    APlayerController* Controller = GetWorld()->GetFirstPlayerController();
+    APlayerController* const Controller = GetWorld()->GetFirstPlayerController();
     Controller->ClientTravel(TravelURL, ETravelType::TRAVEL_Absolute);
 }
 
