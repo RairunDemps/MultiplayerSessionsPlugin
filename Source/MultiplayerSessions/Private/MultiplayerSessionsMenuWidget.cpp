@@ -10,13 +10,13 @@ DEFINE_LOG_CATEGORY_STATIC(LogMultiplayerSessionsMenuWidget, All, All)
 
 void UMultiplayerSessionsMenuWidget::Setup(int32 NumPublicConnections, FString MatchType, FString LobbyPath)
 {
-    UWorld* World = GetWorld();
+    UWorld* const World = GetWorld();
     if (!World) return;
 
-    UGameInstance* GameInstance = World->GetGameInstance();
+    UGameInstance* const GameInstance = World->GetGameInstance();
     if (!GameInstance) return;
 
-    APlayerController* Controller = World->GetFirstPlayerController();
+    APlayerController* const Controller = World->GetFirstPlayerController();
     if (!Controller) return;
 
     MultiplayerSessionsSubsystem = GameInstance->GetSubsystem<UMultiplayerSessionsSubsystem>();
@@ -77,10 +77,10 @@ void UMultiplayerSessionsMenuWidget::OnJoinButtonClicked()
 
 void UMultiplayerSessionsMenuWidget::TearDown()
 {
-    UWorld* World = GetWorld();
+    UWorld* const World = GetWorld();
     if (!World) return;
 
-    APlayerController* Controller = World->GetFirstPlayerController();
+    APlayerController* const Controller = World->GetFirstPlayerController();
     if (!Controller) return;
 
     FInputModeGameOnly InputModeData;
@@ -117,7 +117,7 @@ void UMultiplayerSessionsMenuWidget::OnFindSessionComplete(const TArray<FOnlineS
         return;
     }
 
-    for (const auto SearchResult : SearchResults)
+    for (const FOnlineSessionSearchResult& SearchResult : SearchResults)
     {
         FString MatchType;
         SearchResult.Session.SessionSettings.Get(FName(TEXT("MatchType")), MatchType);
