@@ -38,12 +38,29 @@ NetConnectionClassName="OnlineSubsystemSteam.SteamNetConnection"
 5. Clone this repository inside Plugins folder `git clone https://github.com/RairunDemps/MultiplayerSessionsPlugin.git Plugins/MultiplayerSessions`.
 6. Delete your .vs, Binaries, DerivedDataCache, Intermediate, Saved folders and .sln file. Right click on .uproject file and choose **Generate Visual Studio project files**.
 7. Open your .sln file. You should now see Plugins folder in the Solution Explorer and Multiplayer Sessions folder inside.
+
+![Multiplayer Sessions folder in Solution Explorer](Images/SolutionExplorer.png)
+
 8. Open your .uproject file. Select **Yes** to rebuild modules.
-9. In Content Browser click Settings and check **Show PLugin Content**. You should now see Plugins folder and **Multiplayer Sessions Content**, **Multiplayer Sessions Content C++ Classes** folders inside.
+9. In Content Browser click Settings(up right) and check **Show PLugin Content**. You should now see Plugins folder and **Multiplayer Sessions Content**, **Multiplayer Sessions Content C++ Classes** folders inside.
+
+![Multiplayer Sessions folder in Solution Explorer](Images/ShowPluginContent.png)
+
+![Multiplayer Sessions folder in Solution Explorer](Images/PluginFolder.png)
+
 10. Create new level and save it.
 11. Open Level Blueprint. Use **Create Widget** and choose **WBP_MenuWidget** as class.
 12. Drag off of the **Return Value** output and search for Setup. Select it.
 13. Change **Num Public Connections**, **Match Type** and **Lobby Path** to values you want in your game.
+
+![Multiplayer Sessions folder in Solution Explorer](Images/CreateWidgetSetup.png)
+
+14. If you want to use more than 16 players(public connections) in your game, you need to open  **Config/DefaultGame.ini** and add:
+```ini
+[/Script/Engine.GameSession]
+MaxPlayers=100
+```
+
 
 ## License
 Access to the sources of this project and their use are governed by the [Unreal Engine End User License Agreement](https://www.unrealengine.com/eula)
