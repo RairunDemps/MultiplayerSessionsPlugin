@@ -56,16 +56,12 @@ private:
     TSharedPtr<FOnlineSessionSettings> LastSessionSettings;
     TSharedPtr<FOnlineSessionSearch> LastSessionSearch;
 
-    FOnCreateSessionCompleteDelegate CreateSessionCompleteDelegate;
     FDelegateHandle CreateSessionCompleteDelegateHandle;
-    FOnFindSessionsCompleteDelegate FindSessionCompleteDelegate;
     FDelegateHandle FindSessionCompleteDelegateHandle;
-    FOnJoinSessionCompleteDelegate JoinSessionCompleteDelegate;
     FDelegateHandle JoinSessionCompleteDelegateHandle;
-    FOnStartSessionCompleteDelegate StartSessionCompleteDelegate;
     FDelegateHandle StartSessionCompleteDelegateHandle;
-    FOnDestroySessionCompleteDelegate DestroySessionCompleteDelegate;
     FDelegateHandle DestroySessionCompleteDelegateHandle;
+    FDelegateHandle EOSLoginDelegateHandle;
 
     int32 PublicConnectionsNumber = 4;
     FString TypeOfMatch = "FreeForAll";

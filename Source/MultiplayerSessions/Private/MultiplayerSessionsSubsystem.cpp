@@ -9,11 +9,6 @@
 DEFINE_LOG_CATEGORY_STATIC(LogMultiplayerSessionSubsystem, All, All)
 
 UMultiplayerSessionsSubsystem::UMultiplayerSessionsSubsystem()
-    : CreateSessionCompleteDelegate(FOnCreateSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnCreateSessionComplete)),
-      FindSessionCompleteDelegate(FOnFindSessionsCompleteDelegate::CreateUObject(this, &ThisClass::OnFindSessionsComplete)),
-      JoinSessionCompleteDelegate(FOnJoinSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnJoinSessionComplete)),
-      StartSessionCompleteDelegate(FOnStartSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnStartSessionComplete)),
-      DestroySessionCompleteDelegate(FOnDestroySessionCompleteDelegate::CreateUObject(this, &ThisClass::OnDestroySessionComplete))
 {
     Subsystem = IOnlineSubsystem::Get();
     if (!Subsystem) return;
@@ -62,7 +57,7 @@ void UMultiplayerSessionsSubsystem::CreateSession(int32 InPublicConnectionsNumbe
     InitializeLastSessionSettings(InPublicConnectionsNumber, InTypeOfMatch);
     if (!LastSessionSettings.IsValid()) return;
 
-    CreateSessionCompleteDelegateHandle = SessionInterface->AddOnCreateSessionCompleteDelegate_Handle(CreateSessionCompleteDelegate);
+    CreateSessionCompleteDelegateHandle = SessionInterface->OnCreateSessionCompleteDelegates.AddUObject(this, &ThisClass::OnCreateSessionComplete);
     if (!SessionInterface->CreateSession(HostingPlayerNumber, NAME_GameSession, *LastSessionSettings))
     {
         SessionInterface->ClearOnCreateSessionCompleteDelegate_Handle(CreateSessionCompleteDelegateHandle);
@@ -104,10 +99,10 @@ void UMultiplayerSessionsSubsystem::FindSessions(int32 MaxSearchResults)
 
     const FName SubsystemName = Subsystem->GetSubsystemName();
     LastSessionSearch->bIsLanQuery = SubsystemName.IsEqual(TEXT("NULL"), ENameCase::CaseSensitive);
-    FindSessionCompleteDelegateHandle = SessionInterface->AddOnFindSessionsCompleteDelegate_Handle(FindSessionCompleteDelegate);
     LastSessionSearch->MaxSearchResults = MaxSearchResults;
     LastSessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
 
+    FindSessionCompleteDelegateHandle = SessionInterface->OnFindSessionsCompleteDelegates.AddUObject(this, &ThisClass::OnFindSessionsComplete);
     if (!SessionInterface->FindSessions(HostingPlayerNumber, LastSessionSearch.ToSharedRef()))
     {
         SessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(FindSessionCompleteDelegateHandle);
@@ -123,7 +118,7 @@ void UMultiplayerSessionsSubsystem::JoinSession(const FOnlineSessionSearchResult
         return;
     }
 
-    JoinSessionCompleteDelegateHandle = SessionInterface->AddOnJoinSessionCompleteDelegate_Handle(JoinSessionCompleteDelegate);
+    JoinSessionCompleteDelegateHandle = SessionInterface->OnJoinSessionCompleteDelegates.AddUObject(this, &ThisClass::OnJoinSessionComplete);
     if (!SessionInterface->JoinSession(HostingPlayerNumber, NAME_GameSession, SessionResult))
     {
         SessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(JoinSessionCompleteDelegateHandle);
@@ -139,7 +134,7 @@ void UMultiplayerSessionsSubsystem::DestroySession()
         return;
     }
 
-    DestroySessionCompleteDelegateHandle = SessionInterface->AddOnDestroySessionCompleteDelegate_Handle(DestroySessionCompleteDelegate);
+    DestroySessionCompleteDelegateHandle = SessionInterface->OnDestroySessionCompleteDelegates.AddUObject(this, &ThisClass::OnDestroySessionComplete);
     if (!SessionInterface->DestroySession(NAME_GameSession))
     {
         SessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(DestroySessionCompleteDelegateHandle);
@@ -156,6 +151,7 @@ void UMultiplayerSessionsSubsystem::OnCreateSessionComplete(FName SessionName, b
         SessionInterface->ClearOnCreateSessionCompleteDelegate_Handle(CreateSessionCompleteDelegateHandle);
     }
 
+    UE_LOG(LogMultiplayerSessionSubsystem, Warning, TEXT("Session creation is %s"), bWasSuccessful ? TEXT("successful") : TEXT("unsuccessful"));
     OnMultiplayerHostSessionComplete.Broadcast(bWasSuccessful);
 }
 
@@ -216,10 +212,10 @@ void UMultiplayerSessionsSubsystem::Login()
     Credentials.Type = FString("accountportal");
 
     IOnlineIdentityPtr Identity = Subsystem->GetIdentityInterface();
-    Identity->OnLoginCompleteDelegates->AddUObject(this, &ThisClass::OnLoginComplete);
+    EOSLoginDelegateHandle = Identity->OnLoginCompleteDelegates->AddUObject(this, &ThisClass::OnLoginComplete);
     if (!Identity->Login(0, Credentials))
     {
-        Identity->ClearOnLoginCompleteDelegates(0, this);
+        Identity->ClearOnLoginCompleteDelegate_Handle(0, EOSLoginDelegateHandle);
     }
 }
 
@@ -231,5 +227,5 @@ void UMultiplayerSessionsSubsystem::OnLoginComplete(int LocalUserNum, bool bWasS
 
     if (!Subsystem || !Subsystem->GetIdentityInterface()) return;
 
-    Subsystem->GetIdentityInterface()->ClearOnLoginCompleteDelegates(0, this);
+    Subsystem->GetIdentityInterface()->ClearOnLoginCompleteDelegate_Handle(0, EOSLoginDelegateHandle);
 }
