@@ -4,6 +4,7 @@
 #include "OnlineSubsystem.h"
 #include "Interfaces/OnlineSessionInterface.h"
 #include "OnlineSessionSettings.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogMultiplayerSessionSubsystem, All, All)
 
@@ -14,66 +15,76 @@ UMultiplayerSessionsSubsystem::UMultiplayerSessionsSubsystem()
       StartSessionCompleteDelegate(FOnStartSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnStartSessionComplete)),
       DestroySessionCompleteDelegate(FOnDestroySessionCompleteDelegate::CreateUObject(this, &ThisClass::OnDestroySessionComplete))
 {
-    IOnlineSubsystem* const Subsystem = IOnlineSubsystem::Get();
+    Subsystem = IOnlineSubsystem::Get();
     if (!Subsystem) return;
 
     SessionInterface = Subsystem->GetSessionInterface();
-    UE_LOG(LogMultiplayerSessionSubsystem, Display, TEXT("Online Subsystem found %s"), *Subsystem->GetSubsystemName().ToString())
+    UE_LOG(LogMultiplayerSessionSubsystem, Display, TEXT("Online Subsystem found %s"), *Subsystem->GetSubsystemName().ToString());
 }
 
-void UMultiplayerSessionsSubsystem::HostSession(int32 NumPublicConnections, FString MatchType)
+void UMultiplayerSessionsSubsystem::Initialize(FSubsystemCollectionBase& Collection)
+{
+    Super::Initialize(Collection);
+
+    Login();
+}
+
+void UMultiplayerSessionsSubsystem::HostSession(int32 InPublicConnectionsNumber, FString InTypeOfMatch)
 {
     if (!SessionInterface.IsValid()) return;
 
     FNamedOnlineSession* const ExistingSession = SessionInterface->GetNamedSession(NAME_GameSession);
     if (ExistingSession)
     {
-        PublicConnectionsNumber = NumPublicConnections;
-        TypeOfMatch = MatchType;
+        PublicConnectionsNumber = InPublicConnectionsNumber;
+        TypeOfMatch = InTypeOfMatch;
         bCreateSession = true;
         DestroySession();
         return;
     }
 
-    CreateSession(NumPublicConnections, MatchType);
+    if (!bLoggedIn)
+    {
+        PublicConnectionsNumber = InPublicConnectionsNumber;
+        TypeOfMatch = InTypeOfMatch;
+        bCreateSession = true;
+        Login();
+        return;
+    }
+
+    CreateSession(InPublicConnectionsNumber, InTypeOfMatch);
 }
 
-void UMultiplayerSessionsSubsystem::CreateSession(int32 NumPublicConnections, FString MatchType)
+void UMultiplayerSessionsSubsystem::CreateSession(int32 InPublicConnectionsNumber, FString InTypeOfMatch)
 {
     if (!SessionInterface.IsValid()) return;
 
-    InitializeLastSessionSettings(NumPublicConnections, MatchType);
+    InitializeLastSessionSettings(InPublicConnectionsNumber, InTypeOfMatch);
     if (!LastSessionSettings.IsValid()) return;
 
-    UWorld* const World = GetWorld();
-    if (!World) return;
-
-    ULocalPlayer* const LocalPlayer = World->GetFirstLocalPlayerFromController();
-    if (!LocalPlayer) return;
-
     CreateSessionCompleteDelegateHandle = SessionInterface->AddOnCreateSessionCompleteDelegate_Handle(CreateSessionCompleteDelegate);
-    if (!SessionInterface->CreateSession(*LocalPlayer->GetPreferredUniqueNetId(), NAME_GameSession, *LastSessionSettings))
+    if (!SessionInterface->CreateSession(HostingPlayerNumber, NAME_GameSession, *LastSessionSettings))
     {
         SessionInterface->ClearOnCreateSessionCompleteDelegate_Handle(CreateSessionCompleteDelegateHandle);
         OnMultiplayerHostSessionComplete.Broadcast(false);
     }
 }
 
-void UMultiplayerSessionsSubsystem::InitializeLastSessionSettings(int32 NumPublicConnections, FString MatchType)
+void UMultiplayerSessionsSubsystem::InitializeLastSessionSettings(int32 InPublicConnectionsNumber, FString InTypeOfMatch)
 {
     LastSessionSettings = MakeShareable(new FOnlineSessionSettings());
     if (!LastSessionSettings.IsValid()) return;
 
-    const FName SubsystemName = IOnlineSubsystem::Get()->GetSubsystemName();
+    const FName SubsystemName = Subsystem->GetSubsystemName();
     LastSessionSettings->bIsLANMatch = SubsystemName.IsEqual(TEXT("NULL"), ENameCase::CaseSensitive);
-    LastSessionSettings->NumPublicConnections = NumPublicConnections;
+    LastSessionSettings->NumPublicConnections = InPublicConnectionsNumber;
     LastSessionSettings->bShouldAdvertise = true;
     LastSessionSettings->bUsesPresence = true;
     LastSessionSettings->bAllowJoinInProgress = true;
     LastSessionSettings->bAllowJoinViaPresence = true;
     LastSessionSettings->bUseLobbiesIfAvailable = true;
     LastSessionSettings->BuildUniqueId = GetBuildUniqueId();
-    LastSessionSettings->Set(FName(TEXT("MatchType")), MatchType, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+    LastSessionSettings->Set(FName(TEXT("MatchType")), InTypeOfMatch, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 }
 
 void UMultiplayerSessionsSubsystem::FindSessions(int32 MaxSearchResults)
@@ -85,20 +96,19 @@ void UMultiplayerSessionsSubsystem::FindSessions(int32 MaxSearchResults)
     }
 
     LastSessionSearch = MakeShareable(new FOnlineSessionSearch());
-    if (!LastSessionSearch.IsValid() || !GetWorld() || !GetWorld()->GetFirstLocalPlayerFromController())
+    if (!LastSessionSearch.IsValid())
     {
         OnMultiplayerFindSessionComplete.Broadcast(TArray<FOnlineSessionSearchResult>(), false);
         return;
     }
 
-    const FName SubsystemName = IOnlineSubsystem::Get()->GetSubsystemName();
+    const FName SubsystemName = Subsystem->GetSubsystemName();
     LastSessionSearch->bIsLanQuery = SubsystemName.IsEqual(TEXT("NULL"), ENameCase::CaseSensitive);
     FindSessionCompleteDelegateHandle = SessionInterface->AddOnFindSessionsCompleteDelegate_Handle(FindSessionCompleteDelegate);
     LastSessionSearch->MaxSearchResults = MaxSearchResults;
     LastSessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
 
-    ULocalPlayer* const LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
-    if (!SessionInterface->FindSessions(*LocalPlayer->GetPreferredUniqueNetId(), LastSessionSearch.ToSharedRef()))
+    if (!SessionInterface->FindSessions(HostingPlayerNumber, LastSessionSearch.ToSharedRef()))
     {
         SessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(FindSessionCompleteDelegateHandle);
         OnMultiplayerFindSessionComplete.Broadcast(TArray<FOnlineSessionSearchResult>(), false);
@@ -107,16 +117,14 @@ void UMultiplayerSessionsSubsystem::FindSessions(int32 MaxSearchResults)
 
 void UMultiplayerSessionsSubsystem::JoinSession(const FOnlineSessionSearchResult& SessionResult)
 {
-    if (!SessionInterface.IsValid() || !GetWorld() || !GetWorld()->GetFirstLocalPlayerFromController())
+    if (!SessionInterface.IsValid())
     {
         OnMultiplayerJoinSessionComplete.Broadcast(EOnJoinSessionCompleteResult::UnknownError, TEXT(""));
         return;
     }
 
     JoinSessionCompleteDelegateHandle = SessionInterface->AddOnJoinSessionCompleteDelegate_Handle(JoinSessionCompleteDelegate);
-
-    ULocalPlayer* const LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
-    if (!SessionInterface->JoinSession(*LocalPlayer->GetPreferredUniqueNetId(), NAME_GameSession, SessionResult))
+    if (!SessionInterface->JoinSession(HostingPlayerNumber, NAME_GameSession, SessionResult))
     {
         SessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(JoinSessionCompleteDelegateHandle);
         OnMultiplayerJoinSessionComplete.Broadcast(EOnJoinSessionCompleteResult::UnknownError, TEXT(""));
@@ -196,4 +204,32 @@ void UMultiplayerSessionsSubsystem::OnDestroySessionComplete(FName SessionName, 
     }
 
     OnMultiplayerDestroySessionComplete.Broadcast(bWasSuccessful);
+}
+
+void UMultiplayerSessionsSubsystem::Login()
+{
+    if (bLoggedIn || !Subsystem || !Subsystem->GetIdentityInterface()) return;
+
+    FOnlineAccountCredentials Credentials;
+    Credentials.Id = FString();
+    Credentials.Token = FString();
+    Credentials.Type = FString("accountportal");
+
+    IOnlineIdentityPtr Identity = Subsystem->GetIdentityInterface();
+    Identity->OnLoginCompleteDelegates->AddUObject(this, &ThisClass::OnLoginComplete);
+    if (!Identity->Login(0, Credentials))
+    {
+        Identity->ClearOnLoginCompleteDelegates(0, this);
+    }
+}
+
+void UMultiplayerSessionsSubsystem::OnLoginComplete(int LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Error)
+{
+    UE_LOG(LogMultiplayerSessionSubsystem, Warning, TEXT("Login is %s"), bWasSuccessful ? TEXT("successful") : TEXT("unsuccessful"));
+    bLoggedIn = bWasSuccessful;
+    OnMultiplayerLoginComplete.Broadcast(bWasSuccessful);
+
+    if (!Subsystem || !Subsystem->GetIdentityInterface()) return;
+
+    Subsystem->GetIdentityInterface()->ClearOnLoginCompleteDelegates(0, this);
 }

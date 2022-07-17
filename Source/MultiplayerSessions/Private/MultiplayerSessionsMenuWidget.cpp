@@ -41,6 +41,8 @@ void UMultiplayerSessionsMenuWidget::NativeOnInitialized()
 {
     Super::NativeOnInitialized();
 
+
+
     if (HostButton)
     {
         HostButton->OnClicked.AddDynamic(this, &ThisClass::OnHostButtonClicked);
@@ -96,6 +98,7 @@ void UMultiplayerSessionsMenuWidget::BindDelegates()
     MultiplayerSessionsSubsystem->OnMultiplayerStartSessionComplete.AddDynamic(this, &ThisClass::OnStartSessionComplete);
     MultiplayerSessionsSubsystem->OnMultiplayerFindSessionComplete.AddUObject(this, &ThisClass::OnFindSessionComplete);
     MultiplayerSessionsSubsystem->OnMultiplayerJoinSessionComplete.AddUObject(this, &ThisClass::OnJoinSessionComplete);
+    MultiplayerSessionsSubsystem->OnMultiplayerLoginComplete.AddDynamic(this, &ThisClass::OnLoginComplete);
 }
 
 void UMultiplayerSessionsMenuWidget::OnHostSessionComplete(bool bWasSuccessful)
@@ -107,6 +110,12 @@ void UMultiplayerSessionsMenuWidget::OnHostSessionComplete(bool bWasSuccessful)
     }
 
     GetWorld()->ServerTravel(PathForLobby);
+}
+
+void UMultiplayerSessionsMenuWidget::OnLoginComplete(bool bWasSuccessful)
+{
+    HostButton->SetIsEnabled(bWasSuccessful);
+    JoinButton->SetIsEnabled(bWasSuccessful);
 }
 
 void UMultiplayerSessionsMenuWidget::OnFindSessionComplete(const TArray<FOnlineSessionSearchResult>& SearchResults, bool bWasSuccessful)

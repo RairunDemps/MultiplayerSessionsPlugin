@@ -49,6 +49,9 @@ private:
     void OnFindSessionComplete(const TArray<FOnlineSessionSearchResult>& SearchResults, bool bWasSuccessful);
     void OnJoinSessionComplete(EOnJoinSessionCompleteResult::Type Result, FString TravelURL);
 
+    UFUNCTION()
+    void OnLoginComplete(bool bWasSuccessful);
+
     void TearDown();
     void BindDelegates();
 
