@@ -207,9 +207,9 @@ void UMultiplayerSessionsSubsystem::Login()
     if (bLoggedIn || !Subsystem || !Subsystem->GetIdentityInterface()) return;
 
     FOnlineAccountCredentials Credentials;
-    Credentials.Id = FString();
-    Credentials.Token = FString();
-    Credentials.Type = FString("accountportal");
+    Credentials.Id = FString("127.0.0.1:8081");
+    Credentials.Token = FString("MultiplayerSessionsCreds");
+    Credentials.Type = FString("developer");
 
     IOnlineIdentityPtr Identity = Subsystem->GetIdentityInterface();
     EOSLoginDelegateHandle = Identity->OnLoginCompleteDelegates->AddUObject(this, &ThisClass::OnLoginComplete);
