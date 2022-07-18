@@ -41,6 +41,7 @@ public:
     void Login();
 
     void Initialize(FSubsystemCollectionBase& Collection) override;
+    void Deinitialize() override;
 
 protected:
     void OnCreateSessionComplete(FName SessionName, bool bWasSuccessful);

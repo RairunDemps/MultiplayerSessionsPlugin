@@ -24,6 +24,15 @@ void UMultiplayerSessionsSubsystem::Initialize(FSubsystemCollectionBase& Collect
     Login();
 }
 
+void UMultiplayerSessionsSubsystem::Deinitialize()
+{
+    UE_LOG(LogMultiplayerSessionSubsystem, Display, TEXT("Deinitialize implementation"));
+    DestroySession();
+    UE_LOG(LogMultiplayerSessionSubsystem, Display, TEXT("After DestroySession"));
+
+    Super::Deinitialize();
+}
+
 void UMultiplayerSessionsSubsystem::HostSession(int32 InPublicConnectionsNumber, FString InTypeOfMatch)
 {
     if (!SessionInterface.IsValid()) return;
@@ -80,6 +89,7 @@ void UMultiplayerSessionsSubsystem::InitializeLastSessionSettings(int32 InPublic
     LastSessionSettings->bUseLobbiesIfAvailable = true;
     LastSessionSettings->BuildUniqueId = GetBuildUniqueId();
     LastSessionSettings->Set(FName(TEXT("MatchType")), InTypeOfMatch, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+    LastSessionSettings->Set(SEARCH_KEYWORDS, FString(TEXT("DemoLobby")), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 }
 
 void UMultiplayerSessionsSubsystem::FindSessions(int32 MaxSearchResults)
